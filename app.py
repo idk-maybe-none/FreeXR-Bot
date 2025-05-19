@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.0.1"
+BOTVERSION = "1.0.2"
 import discord
 from discord.ext import commands
 import asyncio

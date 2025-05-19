@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.1.5"
+BOTVERSION = "1.2"
 import discord
 from discord.ext import commands
 import asyncio
@@ -16,6 +16,8 @@ import sys
 import tasks
 from discord.ext import tasks
 from datetime import datetime, timedelta
+import git
+from git import Repo
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -62,6 +64,28 @@ report_log_map = load_reports()
 
 FILTER_FILE = "filters.json"
 
+REPO_URL = "https://github.com/FreeXR/FreeXR-Bot.git"
+REPO_DIR = "FreeXR-Bot"
+REPLIES_DIR = os.path.join(REPO_DIR, "quick_replies")
+
+def load_replies():
+    replies = {}
+    if not os.path.exists(REPLIES_DIR):
+        return replies
+    for filename in os.listdir(REPLIES_DIR):
+        if filename.endswith(".md"):
+            filepath = os.path.join(REPLIES_DIR, filename)
+            with open(filepath, 'r', encoding='utf-8') as f:
+                content = f.read().split('---')
+                if len(content) >= 2:
+                    summary_line = content[0].strip().splitlines()[0]
+                    reply_text = content[1].strip()
+                    command_name = filename[:-3]  # remove .md
+                    replies[command_name] = (summary_line, reply_text)
+    return replies
+
+# Initial load
+replies = load_replies()
 # Load regex filters from file
 def load_filters():
     if os.path.exists(FILTER_FILE):
@@ -647,6 +671,53 @@ async def check_quarantine_expiry():
         active_quarantines.pop(user_id_str)
     if to_remove:
         save_quarantine_data()
+        
+@bot.command()
+async def replies_cmd(ctx):
+    if not replies:
+        await ctx.send("⚠️ No replies available.")
+        return
+    response = "\n".join([f"* {key}: {val[0]}" for key, val in replies.items()])
+    await ctx.send(f"```\n{response}\n```")
 
+    
+@bot.command()
+async def updatereplies(ctx):
+    global replies
+    try:
+        if os.path.exists(REPO_DIR):
+            repo = Repo(REPO_DIR)
+            repo.remotes.origin.pull()
+        else:
+            Repo.clone_from(REPO_URL, REPO_DIR)
+        replies = load_replies()
+        await ctx.send("✅ Replies updated.")
+    except Exception as e:
+        await ctx.send(f"❌ Error updating replies: {e}")
+        
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+
+    if message.content.startswith('.'):
+        cmd = message.content[1:]
+        if cmd in replies:
+            await message.channel.send(replies[cmd][1])
+            return
+        elif cmd == "replies":
+            await replies_cmd(message.channel)
+            return
+
+    await bot.process_commands(message)
+
+@bot.command()
+async def reboot(ctx):
+    if not is_admin(ctx.author):
+        return await ctx.send("❌ You are not authorized to reboot the bot.")
+
+    await ctx.send("🔂 Rebooting bot...")
+    python = sys.executable
+    os.execv(python, [python] + sys.argv)
 
 bot.run(TOKEN)

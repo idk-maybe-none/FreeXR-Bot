@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.1.3b"
+BOTVERSION = "1.1.4b"
 import discord
 from discord.ext import commands
 import asyncio
@@ -34,6 +34,7 @@ bot = commands.Bot(command_prefix='.', intents=intents)
 
 REPORT_LOG_CHANNEL_ID = 1361285583195869265
 ADMIN_ROLE_ID = 1361291689683321004
+QUARANTINE_ROLE_ID = 1373608273306976276
 
 with open("token", "r") as file:
     TOKEN = file.read().strip()

@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.1.2b"
+BOTVERSION = "1.1.3b"
 import discord
 from discord.ext import commands
 import asyncio
@@ -14,6 +14,7 @@ import time
 import platform
 import sys
 import tasks
+from discord.ext import tasks
 
 intents = discord.Intents.default()
 intents.messages = True

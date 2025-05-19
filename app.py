@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.0.2"
+BOTVERSION = "1.0.3"
 import discord
 from discord.ext import commands
 import asyncio
@@ -86,7 +86,7 @@ async def on_ready():
                    f"🛠 Version: **{BOTVERSION}**\n"
                    f"⏱ Load time: **{uptime}**")
     channel = bot.get_channel(1344235945674674258)
-   	await channel.send(env_message)
+    await channel.send(env_message)
 
     print(env_message)
 RAW_URL = "https://raw.githubusercontent.com/FreeXR/FreeXR-Bot/refs/heads/main/app.py"

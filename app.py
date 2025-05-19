@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.0.3"
+BOTVERSION = "1.1.0b"
 import discord
 from discord.ext import commands
 import asyncio
@@ -91,6 +91,28 @@ async def on_ready():
     print(env_message)
 RAW_URL = "https://raw.githubusercontent.com/FreeXR/FreeXR-Bot/refs/heads/main/app.py"
 LOCAL_PATH = "/home/container/app.py" 
+
+    load_quarantine_data()
+    # On startup, verify all quarantined users still have role, otherwise cleanup
+    guild = bot.guilds[0] 
+    quarantine_role = guild.get_role(QUARANTINE_ROLE_ID)
+    to_remove = []
+    for user_id_str, unq_time_str in active_quarantines.items():
+        user_id = int(user_id_str)
+        member = guild.get_member(user_id)
+        unq_time = datetime.fromisoformat(unq_time_str)
+        if member is None:
+            # Member not found in guild, remove from active
+            to_remove.append(user_id_str)
+            continue
+        if quarantine_role not in member.roles:
+            # Role missing, remove from active (maybe manually removed)
+            to_remove.append(user_id_str)
+    for user_id_str in to_remove:
+        active_quarantines.pop(user_id_str)
+    save_quarantine_data()
+
+    check_quarantine_expiry.start()
 
 @bot.command()
 async def update(ctx):
@@ -478,6 +500,149 @@ async def status(ctx):
                    f"⏱ Uptime: **{uptime}**")
 
     await ctx.send(env_message)
+
+
+
+# File to store quarantine data persistently
+QUARANTINE_DATA_FILE = "quarantine_data.json"
+LOG_FILE = "quarantine_log.txt"
+
+# Active quarantines dictionary: user_id -> unquarantine timestamp ISO string
+active_quarantines = {}
+
+def log_to_file(entry: str):
+    with open(LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(f"{datetime.utcnow().isoformat()} - {entry}\n")
+
+def save_quarantine_data():
+    with open(QUARANTINE_DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(active_quarantines, f)
+
+def load_quarantine_data():
+    global active_quarantines
+    if os.path.exists(QUARANTINE_DATA_FILE):
+        with open(QUARANTINE_DATA_FILE, "r", encoding="utf-8") as f:
+            active_quarantines = json.load(f)
+    else:
+        active_quarantines = {}
+
+def is_admin_quarantine():
+    def predicate(ctx):
+        admin_role = ctx.guild.get_role(ADMIN_ROLE_ID)
+        return admin_role in ctx.author.roles
+    return commands.check(predicate)
+
+
+
+@bot.command()
+@is_admin_quarantine()
+async def q(ctx, member: discord.Member, duration: str, *, reason: str = "No reason provided"):
+    """
+    Quarantine a member for a duration (e.g. 10m, 1h, 1d).
+    """
+    quarantine_role = ctx.guild.get_role(QUARANTINE_ROLE_ID)
+    if quarantine_role in member.roles:
+        await ctx.send(f"{member.display_name} is already quarantined.")
+        return
+
+    # Parse duration
+    try:
+        amount = int(duration[:-1])
+        unit = duration[-1].lower()
+        if unit == "m":
+            delta = timedelta(minutes=amount)
+        elif unit == "h":
+            delta = timedelta(hours=amount)
+        elif unit == "d":
+            delta = timedelta(days=amount)
+        else:
+            await ctx.send("Invalid duration format. Use m (minutes), h (hours), or d (days).")
+            return
+    except Exception:
+        await ctx.send("Invalid duration format. Use m (minutes), h (hours), or d (days). Example: 10m, 1h, 2d")
+        return
+
+    await member.add_roles(quarantine_role, reason=f"Quarantine by {ctx.author} for {reason}")
+    unquarantine_time = datetime.utcnow() + delta
+    active_quarantines[str(member.id)] = unquarantine_time.isoformat()
+    save_quarantine_data()
+
+    await ctx.send(f"{member.display_name} has been quarantined for {duration}. Reason: {reason}")
+
+    log_entry = f"{ctx.author} quarantined {member} for {duration}. Reason: {reason}"
+    log_to_file(log_entry)
+
+    log_channel = ctx.guild.get_channel(REPORT_LOG_CHANNEL_ID)
+    if log_channel:
+        embed = discord.Embed(title="User Quarantined", color=discord.Color.orange(), timestamp=datetime.utcnow())
+        embed.add_field(name="User", value=member.mention, inline=True)
+        embed.add_field(name="By", value=ctx.author.mention, inline=True)
+        embed.add_field(name="Duration", value=duration, inline=True)
+        embed.add_field(name="Reason", value=reason, inline=False)
+        await log_channel.send(embed=embed)
+
+@bot.command()
+@is_admin_quarantine()
+async def uq(ctx, member: discord.Member, *, reason: str = "No reason provided"):
+    """
+    Unquarantine a member immediately.
+    """
+    quarantine_role = ctx.guild.get_role(QUARANTINE_ROLE_ID)
+    if quarantine_role not in member.roles:
+        await ctx.send(f"{member.display_name} is not quarantined.")
+        return
+
+    await member.remove_roles(quarantine_role, reason=f"Unquarantined by {ctx.author} for {reason}")
+    active_quarantines.pop(str(member.id), None)
+    save_quarantine_data()
+
+    await ctx.send(f"{member.display_name} has been unquarantined. Reason: {reason}")
+
+    log_entry = f"{ctx.author} unquarantined {member}. Reason: {reason}"
+    log_to_file(log_entry)
+
+    log_channel = ctx.guild.get_channel(REPORT_LOG_CHANNEL_ID)
+    if log_channel:
+        embed = discord.Embed(title="User Unquarantined", color=discord.Color.green(), timestamp=datetime.utcnow())
+        embed.add_field(name="User", value=member.mention, inline=True)
+        embed.add_field(name="By", value=ctx.author.mention, inline=True)
+        embed.add_field(name="Reason", value=reason, inline=False)
+        await log_channel.send(embed=embed)
+
+@tasks.loop(seconds=60)
+async def check_quarantine_expiry():
+    now = datetime.utcnow()
+    guild = bot.guilds[0]
+    quarantine_role = guild.get_role(QUARANTINE_ROLE_ID)
+    to_remove = []
+
+    for user_id_str, unq_time_str in active_quarantines.items():
+        user_id = int(user_id_str)
+        unq_time = datetime.fromisoformat(unq_time_str)
+        if now >= unq_time:
+            member = guild.get_member(user_id)
+            if member and quarantine_role in member.roles:
+                try:
+                    await member.remove_roles(quarantine_role, reason="Automatic quarantine expiry")
+                except Exception as e:
+                    print(f"Error removing quarantine role from {member}: {e}")
+
+                log_entry = f"Automatic unquarantine for {member} (quarantine expired)."
+                log_to_file(log_entry)
+
+                log_channel = guild.get_channel(REPORT_LOG_CHANNEL_ID)
+                if log_channel:
+                    embed = discord.Embed(title="Quarantine Expired", color=discord.Color.blue(), timestamp=datetime.utcnow())
+                    embed.add_field(name="User", value=member.mention)
+                    embed.add_field(name="Reason", value="Quarantine time expired")
+                    await log_channel.send(embed=embed)
+
+            to_remove.append(user_id_str)
+
+    for user_id_str in to_remove:
+        active_quarantines.pop(user_id_str)
+    if to_remove:
+        save_quarantine_data()
 
 
 bot.run(TOKEN)

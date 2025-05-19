@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.1.0b"
+BOTVERSION = "1.1.1b"
 import discord
 from discord.ext import commands
 import asyncio
@@ -89,9 +89,6 @@ async def on_ready():
     await channel.send(env_message)
 
     print(env_message)
-RAW_URL = "https://raw.githubusercontent.com/FreeXR/FreeXR-Bot/refs/heads/main/app.py"
-LOCAL_PATH = "/home/container/app.py" 
-
     load_quarantine_data()
     # On startup, verify all quarantined users still have role, otherwise cleanup
     guild = bot.guilds[0] 
@@ -113,6 +110,9 @@ LOCAL_PATH = "/home/container/app.py"
     save_quarantine_data()
 
     check_quarantine_expiry.start()
+RAW_URL = "https://raw.githubusercontent.com/FreeXR/FreeXR-Bot/refs/heads/main/app.py"
+LOCAL_PATH = "/home/container/app.py" 
+
 
 @bot.command()
 async def update(ctx):

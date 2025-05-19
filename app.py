@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.1.4b"
+BOTVERSION = "1.1.5"
 import discord
 from discord.ext import commands
 import asyncio
@@ -15,6 +15,7 @@ import platform
 import sys
 import tasks
 from discord.ext import tasks
+from datetime import datetime, timedelta
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -561,8 +562,8 @@ async def q(ctx, member: discord.Member, duration: str, *, reason: str = "No rea
         else:
             await ctx.send("Invalid duration format. Use m (minutes), h (hours), or d (days).")
             return
-    except Exception:
-        await ctx.send("Invalid duration format. Use m (minutes), h (hours), or d (days). Example: 10m, 1h, 2d")
+    except Exception as e:
+        await ctx.send(f"Invalid duration format. Use m (minutes), h (hours), or d (days). Example: 10m, 1h, 2d {e}")
         return
 
     await member.add_roles(quarantine_role, reason=f"Quarantine by {ctx.author} for {reason}")

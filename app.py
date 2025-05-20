@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.2"
+BOTVERSION = "1.3"
 import discord
 from discord.ext import commands
 import asyncio
@@ -38,7 +38,6 @@ bot = commands.Bot(command_prefix='.', intents=intents)
 REPORT_LOG_CHANNEL_ID = 1361285583195869265
 ADMIN_ROLE_ID = 1361291689683321004
 QUARANTINE_ROLE_ID = 1373608273306976276
-
 with open("token", "r") as file:
     TOKEN = file.read().strip()
     
@@ -46,6 +45,18 @@ with open("token", "r") as file:
 active_reports = {}
 regex_filters = []
 
+COUNT_FILE = "count_data.json"
+
+def load_count_data():
+    if not os.path.exists(COUNT_FILE):
+        return {"current_count": 0, "last_counter_id": None}
+    with open(COUNT_FILE, "r") as f:
+        return json.load(f)
+
+def save_count_data(data):
+    with open(COUNT_FILE, "w") as f:
+        json.dump(data, f)
+        
 # JSON file path
 REPORTS_FILE = Path("reports.json")
 
@@ -700,6 +711,40 @@ async def on_message(message):
     if message.author.bot:
         return
 
+    if message.channel.id == 1374296035798814804:
+        data = load_count_data()
+        current_count = data["current_count"]
+        last_counter_id = data["last_counter_id"]
+
+        content = message.content.strip()
+
+        if content.isdigit() and "\n" not in content:
+            number = int(content)
+            if number == current_count + 1 and message.author.id != last_counter_id:
+                # Valid message
+                data["current_count"] = number
+                data["last_counter_id"] = message.author.id
+                save_count_data(data)
+                return
+            else:
+                reason = "Double message" if message.author.id == last_counter_id else "Incorrect number"
+        else:
+            reason = "Invalid message format"
+
+        # Reset streak and report
+        data["current_count"] = 0
+        data["last_counter_id"] = None
+        save_count_data(data)
+
+        await message.delete()
+        countreport = bot.get_channel(1344235945674674258)
+        count = bot.get_channel(1374296035798814804)
+        if countreport:
+            await countreport.send(f"⚠️ <@{message.author.id}> broke the counting streak in <#{message.channel.id}>! ({reason})")
+            await count.send("Streak has been broken! Start from 1.")
+        return
+
+    # Replies system
     if message.content.startswith('.'):
         cmd = message.content[1:]
         if cmd in replies:
@@ -711,6 +756,7 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
+
 @bot.command()
 async def reboot(ctx):
     if not is_admin(ctx.author):
@@ -719,5 +765,10 @@ async def reboot(ctx):
     await ctx.send("🔂 Rebooting bot...")
     python = sys.executable
     os.execv(python, [python] + sys.argv)
+
+@bot.command()
+async def streak(ctx):
+    data = load_count_data()
+    await ctx.send(f"The current counting streak is **{data['current_count']}**.")
 
 bot.run(TOKEN)

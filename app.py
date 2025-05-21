@@ -693,6 +693,7 @@ async def replies_cmd(ctx):
 
     
 @bot.command()
+@commands.has_role(ADMIN_ROLE_ID)
 async def updatereplies(ctx):
     global replies
     try:

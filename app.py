@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.3"
+BOTVERSION = "1.4"
 import discord
 from discord.ext import commands
 import asyncio
@@ -752,6 +752,12 @@ async def on_message(message):
             return
         elif cmd == "replies":
             await replies_cmd(message.channel)
+            return
+            
+    if isinstance(message.channel, discord.DMChannel):
+        user_id = message.author.id
+        if user_id in active_reports and not message.content.startswith('.'):
+            active_reports[user_id].append(message.content)
             return
 
     await bot.process_commands(message)

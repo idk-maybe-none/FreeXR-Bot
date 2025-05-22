@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.6"
+BOTVERSION = "1.7"
 import discord
 from discord.ext import commands
 import asyncio
@@ -738,8 +738,8 @@ async def on_message(message):
         save_count_data(data)
 
         await message.delete()
-        countreport = bot.get_channel(1344235945674674258)
-        count = bot.get_channel(1348562119469305958)
+        countreport = bot.get_channel(1348562119469305958)
+        count = bot.get_channel(1374296035798814804)
         if countreport:
             await countreport.send(f"⚠️ <@{message.author.id}> broke the counting streak in <#{message.channel.id}>! ({reason})")
             await count.send("Streak has been broken! Start from 1.")

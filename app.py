@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.7.4"
+BOTVERSION = "1.7.5"
 import discord
 from discord.ext import commands
 import asyncio
@@ -790,4 +790,15 @@ async def streak(ctx):
     data = load_count_data()
     await ctx.send(f"The current counting streak is **{data['current_count']}**.")
 
-bot.run(TOKEN)
+async def main():
+    try:
+        await bot.start(TOKEN)
+    except discord.HTTPException as e:
+        if e.status == 429:
+            print(f"Startup failed: Rate limited. Retry after {e.retry_after} seconds.")
+        else:
+            print(f"Startup failed with HTTP error: {e}")
+    except Exception as e:
+        print(f"Startup failed with unexpected error: {e}")
+
+asyncio.run(main())

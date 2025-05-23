@@ -708,7 +708,7 @@ async def updatereplies(ctx):
         await ctx.send(f"❌ Error updating replies: {e}")
         
 @bot.command()
-async def reboot(ctx):
+async def ratelimitcheck(ctx):
     try:
         await ctx.send("Status message here")
     except discord.HTTPException as e:

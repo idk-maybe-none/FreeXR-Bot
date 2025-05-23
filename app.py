@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.7.1"
+BOTVERSION = "1.7.2"
 import discord
 from discord.ext import commands
 import asyncio
@@ -706,15 +706,17 @@ async def updatereplies(ctx):
         await ctx.send("✅ Replies updated.")
     except Exception as e:
         await ctx.send(f"❌ Error updating replies: {e}")
-
-try:
+        
+@bot.command()
+async def reboot(ctx):
+    try:
         await ctx.send("Status message here")
-    except discord.HTTPException as e:
-        if e.status == 429:
-            print("Rate limited: Try again after", e.retry_after)
-        else:
-            await ctx.send("An error occurred while trying to send the message. Check console!!")
-            print(f"Unexpected HTTP error: {e}")
+            except discord.HTTPException as e:
+                if e.status == 429:
+                    print("Rate limited: Try again after", e.retry_after)
+            else:
+                    await ctx.send("An error occurred while trying to send the message. Check console!!")
+                    print(f"Unexpected HTTP error: {e}")
 
         
 @bot.event

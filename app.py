@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.7"
+BOTVERSION = "1.7.1"
 import discord
 from discord.ext import commands
 import asyncio
@@ -706,6 +706,12 @@ async def updatereplies(ctx):
         await ctx.send("✅ Replies updated.")
     except Exception as e:
         await ctx.send(f"❌ Error updating replies: {e}")
+
+try:
+    await ctx.send("The bot is not ratelimited if this message is seen!")
+except discord.HTTPException as e:
+        print("Rate limited. Try again after:", e.retry_after)
+
         
 @bot.event
 async def on_message(message):

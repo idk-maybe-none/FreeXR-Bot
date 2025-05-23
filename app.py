@@ -708,9 +708,13 @@ async def updatereplies(ctx):
         await ctx.send(f"❌ Error updating replies: {e}")
 
 try:
-    await ctx.send("The bot is not ratelimited if this message is seen!")
-except discord.HTTPException as e:
-        print("Rate limited. Try again after:", e.retry_after)
+        await ctx.send("Status message here")
+    except discord.HTTPException as e:
+        if e.status == 429:
+            print("Rate limited: Try again after", e.retry_after)
+        else:
+            await ctx.send("An error occurred while trying to send the message. Check console!!")
+            print(f"Unexpected HTTP error: {e}")
 
         
 @bot.event

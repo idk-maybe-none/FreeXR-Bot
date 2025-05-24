@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.8"
+BOTVERSION = "1.8.1"
 import discord
 from discord.ext import commands
 import asyncio
@@ -630,8 +630,7 @@ def load_quarantine_data():
 
 def is_admin_quarantine():
     def predicate(ctx):
-        admin_role = ctx.guild.get_role(ADMIN_ROLE_ID)
-        return admin_role in ctx.author.roles
+        return any(role.id == ADMIN_ROLE_ID for role in ctx.author.roles)
     return commands.check(predicate)
 
 

@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.7.5"
+BOTVERSION = "1.8"
 import discord
 from discord.ext import commands
 import asyncio
@@ -14,7 +14,8 @@ import time
 import platform
 import sys
 import tasks
-from discord.ext import tasks
+from discord.ext import tasks, commands
+from discord.ext import commands
 from datetime import datetime, timedelta
 import git
 from git import Repo
@@ -26,6 +27,7 @@ intents.guilds = True
 intents.dm_messages = True
 intents.members = True
 start_time = time.time()
+
 
 def get_uptime():
     seconds = int(time.time() - start_time)
@@ -111,8 +113,20 @@ def save_filters():
 
 regex_filters = load_filters()
 
+BACKUP_FILE = "message_backups.json"
+if os.path.exists(BACKUP_FILE):
+    with open(BACKUP_FILE, "r") as f:
+        message_backups = json.load(f)
+else:
+    message_backups = {}
+
+def save_backups():
+    with open(BACKUP_FILE, "w") as f:
+        json.dump(message_backups, f, indent=2)
+
 @bot.event
 async def on_ready():
+    await bot.tree.sync()
     print(f'Logged in as {bot.user}')
     os_info = platform.system()
     release = platform.release()
@@ -243,12 +257,44 @@ async def report(ctx):
         return
 
     await ctx.send(
-        "You're reporting to the server admins.\n"
+        "You're reporting to the server admins. All messages from this point will be recorded.\n"
         "Please state your issue. Upload images as links (attachments won't work).\n"
-        "When you're finished, type `.iamdone`."
+        "When you're finished, type `.iamdone`. Messages will stop being recorded."
     )
     active_reports[ctx.author.id] = []
 
+@bot.tree.context_menu(name="Add to report")
+async def add_to_report(interaction: discord.Interaction, message: discord.Message):
+    user_id = interaction.user.id
+
+    # Not in report
+    if user_id not in active_reports:
+        await interaction.response.send_message(
+            "❌ You don't have an active report. Please start one by DMing me `.report`.",
+            ephemeral=True
+        )
+        return
+
+    # Prepare the message info
+    content = f"**Message from {message.author} in <#{message.channel.id}>:**\n{message.content}"
+    active_reports[user_id].append(content)
+
+    # Backup
+    backup_entry = {
+        "author": str(message.author),
+        "channel_id": message.channel.id,
+        "message_id": message.id,
+        "content": message.content,
+        "timestamp": str(message.created_at),
+        "jump_url": message.jump_url
+    }
+    if str(user_id) not in message_backups:
+        message_backups[str(user_id)] = []
+    message_backups[str(user_id)].append(backup_entry)
+    save_backups()
+
+    await interaction.response.send_message("✅ Message added to your report.", ephemeral=True)
+    
 @bot.command()
 async def iamdone(ctx):
     if not isinstance(ctx.channel, discord.DMChannel):
@@ -261,17 +307,34 @@ async def iamdone(ctx):
 
     channel = bot.get_channel(REPORT_LOG_CHANNEL_ID)
     report_content = "\n".join(active_reports[user_id])
-    embed = discord.Embed(title="New Report", description=report_content, color=discord.Color.orange())
+    extra = ""
+    if str(user_id) in message_backups:
+        extra += "\n\n**Attached messages:**\n"
+        for entry in message_backups[str(user_id)]:
+            extra += (
+                f"[Jump to message]({entry['jump_url']}) | "
+                f"**{entry['author']}** ({entry['timestamp']}):\n"
+                f"{entry['content']}\n\n"
+            )
+
+    full_content = report_content + extra
+
+    embed = discord.Embed(title="New Report", description=full_content[:4000], color=discord.Color.orange())
     embed.set_author(name=f"{ctx.author}", icon_url=ctx.author.display_avatar.url)
 
     report_message = await channel.send(embed=embed)
 
-    # Save report to JSON
     report_log_map[str(report_message.id)] = user_id
     save_reports(report_log_map)
 
     await ctx.send("Thank you! Your report has been sent.")
+
+    # Clear user's report data
     active_reports[user_id] = []
+    if str(user_id) in message_backups:
+        del message_backups[str(user_id)]
+        save_backups()
+
 
 
 @bot.command()

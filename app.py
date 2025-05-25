@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.8.5"
+BOTVERSION = "1.8.6"
 import discord
 from discord.ext import commands
 import asyncio
@@ -781,29 +781,26 @@ async def ratelimitcheck(ctx):
             print(f"Unexpected HTTP error: {e}")
 
         
-class FakeMessage(discord.Message):
-    def __init__(self, original_message, new_content):
-        self.__dict__ = original_message.__dict__.copy()
-        self.content = new_content
-
 @bot.event
 async def on_message(message):
     if message.author.bot:
         return
 
     invisible_chars = ['\u200b', '\u200c', '\u200d', '\u200e', '\u200f']
-    cleaned_content = message.content.strip()
+    content = message.content
     for ch in invisible_chars:
-        cleaned_content = cleaned_content.replace(ch, '')
+        content = content.replace(ch, '')
+    content = content.strip()
 
     if message.channel.id == 1374296035798814804:
         data = load_count_data()
         current_count = data["current_count"]
         last_counter_id = data["last_counter_id"]
 
-        if cleaned_content.isdigit() and "\n" not in cleaned_content:
-            number = int(cleaned_content)
+        if content.isdigit() and "\n" not in content:
+            number = int(content)
             if number == current_count + 1 and message.author.id != last_counter_id:
+                # Valid message
                 data["current_count"] = number
                 data["last_counter_id"] = message.author.id
                 save_count_data(data)
@@ -825,8 +822,8 @@ async def on_message(message):
             await count.send("Streak has been broken! Start from 1.")
         return
 
-    if cleaned_content.startswith('.'):
-        cmd = cleaned_content[1:]
+    if content.startswith('.'):
+        cmd = content[1:]
         if cmd in replies:
             await message.channel.send(replies[cmd][1])
             return
@@ -836,17 +833,13 @@ async def on_message(message):
 
     if isinstance(message.channel, discord.DMChannel):
         user_id = message.author.id
-        if user_id in active_reports and not cleaned_content.startswith('.'):
-            active_reports[user_id].append(cleaned_content)
+        if user_id in active_reports and not content.startswith('.'):
+            active_reports[user_id].append(content)
             return
 
-    # Create a fake message with cleaned content for command processing
-    if cleaned_content.startswith(bot.command_prefix):
-        fake_message = FakeMessage(message, cleaned_content)
-        ctx = await bot.get_context(fake_message)
-        await bot.invoke(ctx)
-    else:
-        await bot.process_commands(message)
+    message.content = content
+    await bot.process_commands(message)
+
 
 
 

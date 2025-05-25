@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.8.4"
+BOTVERSION = "1.8.5"
 import discord
 from discord.ext import commands
 import asyncio
@@ -781,25 +781,28 @@ async def ratelimitcheck(ctx):
             print(f"Unexpected HTTP error: {e}")
 
         
-from discord.ext import commands
+class FakeMessage(discord.Message):
+    def __init__(self, original_message, new_content):
+        self.__dict__ = original_message.__dict__.copy()
+        self.content = new_content
 
 @bot.event
 async def on_message(message):
     if message.author.bot:
         return
 
-    content = message.content.strip()
     invisible_chars = ['\u200b', '\u200c', '\u200d', '\u200e', '\u200f']
+    cleaned_content = message.content.strip()
     for ch in invisible_chars:
-        content = content.replace(ch, '')
+        cleaned_content = cleaned_content.replace(ch, '')
 
     if message.channel.id == 1374296035798814804:
         data = load_count_data()
         current_count = data["current_count"]
         last_counter_id = data["last_counter_id"]
 
-        if content.isdigit() and "\n" not in content:
-            number = int(content)
+        if cleaned_content.isdigit() and "\n" not in cleaned_content:
+            number = int(cleaned_content)
             if number == current_count + 1 and message.author.id != last_counter_id:
                 data["current_count"] = number
                 data["last_counter_id"] = message.author.id
@@ -818,14 +821,12 @@ async def on_message(message):
         countreport = bot.get_channel(1348562119469305958)
         count = bot.get_channel(1374296035798814804)
         if countreport:
-            await countreport.send(
-                f"⚠️ <@{message.author.id}> broke the counting streak in <#{message.channel.id}>! ({reason})"
-            )
+            await countreport.send(f"⚠️ <@{message.author.id}> broke the counting streak in <#{message.channel.id}>! ({reason})")
             await count.send("Streak has been broken! Start from 1.")
         return
 
-    if content.startswith('.'):
-        cmd = content[1:]
+    if cleaned_content.startswith('.'):
+        cmd = cleaned_content[1:]
         if cmd in replies:
             await message.channel.send(replies[cmd][1])
             return
@@ -835,20 +836,17 @@ async def on_message(message):
 
     if isinstance(message.channel, discord.DMChannel):
         user_id = message.author.id
-        if user_id in active_reports and not content.startswith('.'):
-            active_reports[user_id].append(content)
+        if user_id in active_reports and not cleaned_content.startswith('.'):
+            active_reports[user_id].append(cleaned_content)
             return
-            
-    # Gross fix right here
-    if content.startswith(bot.command_prefix):
-        # Monkey-patch
-        fake_message = message
-        fake_message.content = content
+
+    # Create a fake message with cleaned content for command processing
+    if cleaned_content.startswith(bot.command_prefix):
+        fake_message = FakeMessage(message, cleaned_content)
         ctx = await bot.get_context(fake_message)
         await bot.invoke(ctx)
     else:
         await bot.process_commands(message)
-
 
 
 

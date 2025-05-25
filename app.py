@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.8.2"
+BOTVERSION = "1.8.3"
 import discord
 from discord.ext import commands
 import asyncio
@@ -786,16 +786,16 @@ async def on_message(message):
     if message.author.bot:
         return
 
+    content = message.content.strip()
+    invisible_chars = ['\u200b', '\u200c', '\u200d', '\u200e', '\u200f']
+    for ch in invisible_chars:
+        content = content.replace(ch, '')
+    
     if message.channel.id == 1374296035798814804:
         data = load_count_data()
         current_count = data["current_count"]
         last_counter_id = data["last_counter_id"]
-    
-        content = message.content.strip()
-        invisible_chars = ['\u200b', '\u200c', '\u200d', '\u200e', '\u200f']
-        for ch in invisible_chars:
-            content = content.replace(ch, '')
-    
+
         if content.isdigit() and "\n" not in content:
             number = int(content)
             if number == current_count + 1 and message.author.id != last_counter_id:
@@ -808,12 +808,11 @@ async def on_message(message):
                 reason = "Double message" if message.author.id == last_counter_id else "Incorrect number"
         else:
             reason = "Invalid message format"
-    
-        # Reset streak and report
+
         data["current_count"] = 0
         data["last_counter_id"] = None
         save_count_data(data)
-    
+
         await message.delete()
         countreport = bot.get_channel(1348562119469305958)
         count = bot.get_channel(1374296035798814804)
@@ -822,24 +821,23 @@ async def on_message(message):
             await count.send("Streak has been broken! Start from 1.")
         return
 
-
-    # Replies system
-    if message.content.startswith('.'):
-        cmd = message.content[1:]
+    if content.startswith('.'):
+        cmd = content[1:]
         if cmd in replies:
             await message.channel.send(replies[cmd][1])
             return
         elif cmd == "replies":
             await replies_cmd(message.channel)
             return
-            
+
     if isinstance(message.channel, discord.DMChannel):
         user_id = message.author.id
-        if user_id in active_reports and not message.content.startswith('.'):
-            active_reports[user_id].append(message.content)
+        if user_id in active_reports and not content.startswith('.'):
+            active_reports[user_id].append(content)
             return
 
     await bot.process_commands(message)
+
 
 
 @bot.command()

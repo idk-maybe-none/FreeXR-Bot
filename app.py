@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.8.3"
+BOTVERSION = "1.8.4"
 import discord
 from discord.ext import commands
 import asyncio
@@ -781,6 +781,8 @@ async def ratelimitcheck(ctx):
             print(f"Unexpected HTTP error: {e}")
 
         
+from discord.ext import commands
+
 @bot.event
 async def on_message(message):
     if message.author.bot:
@@ -790,7 +792,7 @@ async def on_message(message):
     invisible_chars = ['\u200b', '\u200c', '\u200d', '\u200e', '\u200f']
     for ch in invisible_chars:
         content = content.replace(ch, '')
-    
+
     if message.channel.id == 1374296035798814804:
         data = load_count_data()
         current_count = data["current_count"]
@@ -799,7 +801,6 @@ async def on_message(message):
         if content.isdigit() and "\n" not in content:
             number = int(content)
             if number == current_count + 1 and message.author.id != last_counter_id:
-                # Valid message
                 data["current_count"] = number
                 data["last_counter_id"] = message.author.id
                 save_count_data(data)
@@ -817,7 +818,9 @@ async def on_message(message):
         countreport = bot.get_channel(1348562119469305958)
         count = bot.get_channel(1374296035798814804)
         if countreport:
-            await countreport.send(f"⚠️ <@{message.author.id}> broke the counting streak in <#{message.channel.id}>! ({reason})")
+            await countreport.send(
+                f"⚠️ <@{message.author.id}> broke the counting streak in <#{message.channel.id}>! ({reason})"
+            )
             await count.send("Streak has been broken! Start from 1.")
         return
 
@@ -835,8 +838,17 @@ async def on_message(message):
         if user_id in active_reports and not content.startswith('.'):
             active_reports[user_id].append(content)
             return
+            
+    # Gross fix right here
+    if content.startswith(bot.command_prefix):
+        # Monkey-patch
+        fake_message = message
+        fake_message.content = content
+        ctx = await bot.get_context(fake_message)
+        await bot.invoke(ctx)
+    else:
+        await bot.process_commands(message)
 
-    await bot.process_commands(message)
 
 
 

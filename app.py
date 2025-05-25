@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.8.6"
+BOTVERSION = "1.8.7"
 import discord
 from discord.ext import commands
 import asyncio
@@ -38,7 +38,7 @@ def get_uptime():
 bot = commands.Bot(command_prefix='.', intents=intents)
 
 REPORT_LOG_CHANNEL_ID = 1361285583195869265
-ADMIN_ROLE_ID = 1361291689683321004
+ADMIN_ROLE_ID = 1376159693021646900
 QUARANTINE_ROLE_ID = 1373608273306976276
 with open("token", "r") as file:
     TOKEN = file.read().strip()

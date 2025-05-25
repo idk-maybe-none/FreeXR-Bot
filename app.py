@@ -587,7 +587,7 @@ async def on_message(message):
             active_reports[message.author.id].append(message.content)
 
     await bot.process_commands(message)
-    
+
 @bot.command()
 async def status(ctx):
     os_info = platform.system()
@@ -603,7 +603,11 @@ async def status(ctx):
 
     await ctx.send(env_message)
 
-
+@bot.command()
+@bot.has_role(ADMIN_ROLE_ID)
+async def slowmode(ctx, seconds: int):
+    await ctx.channel.edit(slowmode_delay=seconds)
+    await ctx.send(f"This channel now has a slowmode of {seconds} seconds!")
 
 # File to store quarantine data persistently
 QUARANTINE_DATA_FILE = "quarantine_data.json"

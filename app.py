@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.9.1"
+BOTVERSION = "1.9.2"
 import discord
 from discord.ext import commands
 import asyncio
@@ -28,7 +28,31 @@ intents.dm_messages = True
 intents.members = True
 start_time = time.time()
 
+class DiscordConsoleLogger:
+    def __init__(self, bot, channel_id):
+        self.bot = bot
+        self.channel_id = channel_id
+        self.buffer = ""
 
+    def write(self, message):
+        self.buffer += message
+        if "\n" in self.buffer:
+            asyncio.ensure_future(self.send_buffer())
+
+    def flush(self):
+        pass
+
+    async def send_buffer(self):
+        if not self.buffer.strip():
+            return
+        channel = self.bot.get_channel(self.channel_id)
+        if channel:
+            try:
+                await channel.send(f"```\n{self.buffer.strip()[:1900]}\n```")
+            except Exception:
+                pass
+        self.buffer = ""
+        
 def get_uptime():
     seconds = int(time.time() - start_time)
     days, seconds = divmod(seconds, 86400)
@@ -143,6 +167,8 @@ def save_backups():
 @bot.event
 async def on_ready():
     await bot.tree.sync()
+    sys.stdout = DiscordConsoleLogger(bot, 1376528272204103721)
+    sys.stderr = sys.stdout
     print(f"Logged in as {bot.user}")
     os_info = platform.system()
     release = platform.release()

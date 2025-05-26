@@ -1,6 +1,7 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.9.2"
+BOTVERSION = "1.9.3"
+DISABLED_IN_BETA = {"slowmode", "q", "uq"}
 import discord
 from discord.ext import commands
 import asyncio
@@ -33,25 +34,30 @@ class DiscordConsoleLogger:
         self.bot = bot
         self.channel_id = channel_id
         self.buffer = ""
+        self.lock = asyncio.Lock()
 
     def write(self, message):
         self.buffer += message
-        if "\n" in self.buffer:
-            asyncio.ensure_future(self.send_buffer())
+        if '\n' in self.buffer:
+            lines = self.buffer.split('\n')
+            self.buffer = lines[-1]
+            for line in lines[:-1]:
+                if line.strip():
+                    asyncio.ensure_future(self.send_to_discord(line.strip()))
 
     def flush(self):
-        pass
+        if self.buffer.strip():
+            asyncio.ensure_future(self.send_to_discord(self.buffer.strip()))
+            self.buffer = ""
 
-    async def send_buffer(self):
-        if not self.buffer.strip():
-            return
-        channel = self.bot.get_channel(self.channel_id)
-        if channel:
-            try:
-                await channel.send(f"```\n{self.buffer.strip()[:1900]}\n```")
-            except Exception:
-                pass
-        self.buffer = ""
+    async def send_to_discord(self, message):
+        async with self.lock:
+            channel = self.bot.get_channel(self.channel_id)
+            if channel:
+                try:
+                    await channel.send(f"```\n{message[:1900]}\n```")
+                except Exception:
+                    pass
         
 def get_uptime():
     seconds = int(time.time() - start_time)
@@ -75,6 +81,7 @@ regex_filters = []
 
 COUNT_FILE = "count_data.json"
 
+IS_BETA = "b" in BOTVERSION.lower()
 
 def load_count_data():
     if not os.path.exists(COUNT_FILE):
@@ -180,8 +187,10 @@ async def on_ready():
         f"✅ Bot is running in **{os_info} {release} ({architecture})** environment "
         f"with **Python {python_version}**\n"
         f"🛠 Version: **{BOTVERSION}**\n"
-        f"⏱ Load time: **{uptime}**"
+        f"⏱ Uptime: **{uptime}**"
     )
+    if "b" in BOTVERSION.lower():
+        env_message += "\n⚠️ Beta version detected – may be unstable! Potentially destructive commands have been disabled."
     channel = bot.get_channel(1344235945674674258)
     await channel.send(env_message)
 
@@ -645,7 +654,8 @@ async def status(ctx):
         f"🛠 Version: **{BOTVERSION}**\n"
         f"⏱ Uptime: **{uptime}**"
     )
-
+    if "b" in BOTVERSION.lower():
+        env_message += "\n⚠️ Beta version detected – may be unstable! Potentially destructive commands have been disabled."
     await ctx.send(env_message)
 
 
@@ -975,7 +985,13 @@ async def streak(ctx):
     data = load_count_data()
     await ctx.send(f"The current counting streak is **{data['current_count']}**.")
 
-
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        print(f"Ignoring exception: CommandNotFound: '{ctx.message.content}'")
+    else:
+        print(f"Unhandled command error: {error}")
+        
 async def main():
     try:
         await bot.start(TOKEN)
@@ -987,5 +1003,8 @@ async def main():
     except Exception as e:
         print(f"Startup failed with unexpected error: {e}")
 
-
+if IS_BETA:
+    for name in DISABLED_IN_BETA:
+        if name in bot.all_commands:
+            bot.remove_command(name)
 asyncio.run(main())

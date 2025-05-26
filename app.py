@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.9"
+BOTVERSION = "1.9.1"
 import discord
 from discord.ext import commands
 import asyncio
@@ -605,47 +605,6 @@ async def unblock(ctx):
         await ctx.send("Timeout. Please try again.")
 
 
-@bot.event
-async def on_message(message):
-    if message.author.bot:
-        return
-
-    # Regex filter check
-    for entry in regex_filters:
-        if entry["enabled"]:
-            try:
-                if re.search(entry["pattern"], message.content):
-                    await message.delete()
-                    try:
-                        await message.author.send(
-                            f"🚫 Your message was not allowed:\n`{message.content}`\n(Reason: Matches blocked pattern)"
-                        )
-                    except discord.Forbidden:
-                        pass
-
-                    log_channel = bot.get_channel(REPORT_LOG_CHANNEL_ID)
-                    if log_channel:
-                        timestamp = datetime.datetime.utcnow().strftime(
-                            "%Y-%m-%d %H:%M:%S UTC"
-                        )
-                        await log_channel.send(
-                            f"🚨 **Blocked Message**\n"
-                            f"**User:** {message.author.mention} (`{message.author.id}`)\n"
-                            f"**Message:** `{message.content}`\n"
-                            f"**Time:** {timestamp}"
-                        )
-                    return
-            except re.error:
-                continue
-
-    # DM report tracking
-    if isinstance(message.channel, discord.DMChannel):
-        if message.author.id in active_reports:
-            active_reports[message.author.id].append(message.content)
-
-    await bot.process_commands(message)
-
-
 @bot.command()
 async def status(ctx):
     os_info = platform.system()
@@ -893,6 +852,32 @@ async def on_message(message):
     for ch in invisible_chars:
         content = content.replace(ch, "")
     content = content.strip()
+    message.content = content  # Update message for command processing later
+
+    for entry in regex_filters:
+        if entry["enabled"]:
+            try:
+                if re.search(entry["pattern"], content):
+                    await message.delete()
+                    try:
+                        await message.author.send(
+                            f"🚫 Your message was not allowed:\n`{content}`\n(Reason: Matches blocked pattern)"
+                        )
+                    except discord.Forbidden:
+                        pass
+
+                    log_channel = bot.get_channel(REPORT_LOG_CHANNEL_ID)
+                    if log_channel:
+                        timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+                        await log_channel.send(
+                            f"🚨 **Blocked Message**\n"
+                            f"**User:** {message.author.mention} (`{message.author.id}`)\n"
+                            f"**Message:** `{content}`\n"
+                            f"**Time:** {timestamp}"
+                        )
+                    return
+            except re.error:
+                continue
 
     if message.channel.id == 1374296035798814804:
         data = load_count_data()
@@ -945,8 +930,8 @@ async def on_message(message):
             active_reports[user_id].append(content)
             return
 
-    message.content = content
     await bot.process_commands(message)
+
 
 
 @bot.command()

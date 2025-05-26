@@ -665,7 +665,7 @@ async def status(ctx):
 
 
 @bot.command()
-@command.has_role(ADMIN_ROLE_ID)
+@commands.has_role(ADMIN_ROLE_ID)
 async def slowmode(ctx, seconds: int):
     await ctx.channel.edit(slowmode_delay=seconds)
     await ctx.send(f"This channel now has a slowmode of {seconds} seconds!")

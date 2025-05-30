@@ -55,7 +55,7 @@ class DiscordConsoleLogger:
             channel = self.bot.get_channel(self.channel_id)
             if channel:
                 try:
-                    await channel.send(f"```\n{message[:1900]}\n```")
+                    await channel.send(f"```\n{message[:1900].replace('```', '')}\n```")
                 except Exception:
                     pass
         

@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.9.4"
+BOTVERSION = "1.9.5"
 DISABLED_IN_BETA = {"slowmode", "q", "uq"}
 import discord
 from discord.ext import commands
@@ -14,7 +14,7 @@ import requests
 import time
 import platform
 import sys
-import tasks
+import tasklib
 from discord.ext import tasks, commands
 from discord.ext import commands
 from datetime import datetime, timedelta
@@ -219,7 +219,7 @@ async def on_ready():
 
 
 RAW_URL = "https://raw.githubusercontent.com/FreeXR/FreeXR-Bot/refs/heads/main/app.py"
-LOCAL_PATH = "/home/container/app.py"
+LOCAL_PATH = "/home/freexr/app.py"
 
 
 @bot.command()

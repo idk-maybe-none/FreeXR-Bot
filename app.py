@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.9.3"
+BOTVERSION = "1.9.4"
 DISABLED_IN_BETA = {"slowmode", "q", "uq"}
 import discord
 from discord.ext import commands
@@ -55,7 +55,7 @@ class DiscordConsoleLogger:
             channel = self.bot.get_channel(self.channel_id)
             if channel:
                 try:
-                    await channel.send(f"```\n{message[:1900]}\n```")
+                    await channel.send(f"```\n{message[:1900].replace('```', '')}\n```")
                 except Exception:
                     pass
         

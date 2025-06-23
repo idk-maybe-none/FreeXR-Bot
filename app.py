@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "1.9.5"
+BOTVERSION = "2.0.0"
 DISABLED_IN_BETA = {"slowmode", "q", "uq"}
 import discord
 from discord.ext import commands
@@ -20,6 +20,10 @@ from discord.ext import commands
 from datetime import datetime, timedelta
 import git
 from git import Repo
+import argparse
+parser = argparse.ArgumentParser(description="FreeXR Bot")
+parser.add_argument("-t", "--token", type=str, help="Discord bot token")
+args = parser.parse_args()
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -72,8 +76,12 @@ bot = commands.Bot(command_prefix=".", intents=intents)
 REPORT_LOG_CHANNEL_ID = 1361285583195869265
 ADMIN_ROLE_ID = 1376159693021646900
 QUARANTINE_ROLE_ID = 1373608273306976276
-with open("token", "r") as file:
-    TOKEN = file.read().strip()
+
+if args.token:
+    TOKEN = args.token
+else:
+    with open("token", "r") as file:
+        TOKEN = file.read().strip()
 
 # In-memory report buffer per user
 active_reports = {}
@@ -120,6 +128,8 @@ REPO_URL = "https://github.com/FreeXR/FreeXR-Bot.git"
 REPO_DIR = "FreeXR-Bot"
 REPLIES_DIR = os.path.join(REPO_DIR, "quick_replies")
 
+DEVICES_FILE = "devices.json"
+
 
 def load_replies():
     replies = {}
@@ -158,6 +168,18 @@ def save_filters():
 
 regex_filters = load_filters()
 
+def load_devices():
+    if os.path.exists(DEVICES_FILE):
+        with open(DEVICES_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+def save_devices(devices):
+    with open(DEVICES_FILE, "w", encoding="utf-8") as f:
+        json.dump(devices, f, indent=2)
+
+devices_data = load_devices()
+
 BACKUP_FILE = "message_backups.json"
 if os.path.exists(BACKUP_FILE):
     with open(BACKUP_FILE, "r") as f:
@@ -191,7 +213,7 @@ async def on_ready():
     )
     if "b" in BOTVERSION.lower():
         env_message += "\n⚠️ Beta version detected – may be unstable! Potentially destructive commands have been disabled."
-    channel = bot.get_channel(1344235945674674258)
+    channel = bot.get_channel(1376528272204103721)
     await channel.send(env_message)
 
     print(env_message)
@@ -222,23 +244,24 @@ RAW_URL = "https://raw.githubusercontent.com/FreeXR/FreeXR-Bot/refs/heads/main/a
 LOCAL_PATH = "/home/freexr/app.py"
 
 
-@bot.command()
+@bot.hybrid_command()
+@commands.has_role(ADMIN_ROLE_ID)
 async def update(ctx):
-    if not is_admin(ctx.author):
-        return await ctx.send("❌ You are not authorized to update the bot.")
-
+    """
+    Updates the bot by pulling the latest code from the repository and restarting.
+    """
     await ctx.send("📥 Downloading latest version of `app.py`...")
 
     try:
-        response = requests.get(RAW_URL)
-        response.raise_for_status()
+        await ctx.send("📥 Pulling from repository...")
+        if os.path.exists(REPO_DIR):
+            repo = Repo(REPO_DIR)
+            repo.remotes.origin.pull()
 
-        with open(LOCAL_PATH, "w", encoding="utf-8") as f:
-            f.write(response.text)
+        else:
+            Repo.clone_from(REPO_URL, REPO_DIR)
 
         await ctx.send("✅ Update complete. Restarting bot...")
-
-        # Restart the bot
         python = sys.executable
         os.execv(python, [python] + sys.argv)
 
@@ -246,8 +269,12 @@ async def update(ctx):
         await ctx.send(f"❌ Update failed:\n```{e}```")
 
 
-@bot.command()
+@bot.hybrid_command()
 async def role(ctx, role_id: int, user_id: int):
+    """ 
+    Toggles a role for a user.
+    Only the user with ID 981463678698266664 is authorized to use this command.
+    """
     allowed_user_id = 981463678698266664
 
     if ctx.author.id != allowed_user_id:
@@ -278,8 +305,12 @@ async def role(ctx, role_id: int, user_id: int):
         await ctx.send(f"❌ Failed to modify role: {e}")
 
 
-@bot.command()
+@bot.hybrid_command()
 async def pin(ctx):
+    """ 
+    Pins a message that you reply to.
+    Anyone can use this command.
+    """
     if not ctx.message.reference:
         await ctx.send("Please reply to the message you want to pin.")
         return
@@ -294,8 +325,12 @@ async def pin(ctx):
         await ctx.send(f"Failed to pin message: {e}")
 
 
-@bot.command()
+@bot.hybrid_command()
 async def unpin(ctx):
+    """ 
+    Unpins a message that you reply to.
+    Anyone can use this command.
+    """
     if not ctx.message.reference:
         await ctx.send("Please reply to the message you want to unpin.")
         return
@@ -310,8 +345,12 @@ async def unpin(ctx):
         await ctx.send(f"Failed to unpin message: {e}")
 
 
-@bot.command()
+@bot.hybrid_command()
 async def report(ctx):
+    """ 
+    Starts a report in DMs.
+    Only works in DMs.
+    """
     if not isinstance(ctx.channel, discord.DMChannel):
         await ctx.send("Please DM me this command.")
         return
@@ -359,8 +398,12 @@ async def add_to_report(interaction: discord.Interaction, message: discord.Messa
     )
 
 
-@bot.command()
+@bot.hybrid_command()
 async def iamdone(ctx):
+    """
+    Ends the report and sends it to the admins.
+    Only works in DMs.
+    """
     if not isinstance(ctx.channel, discord.DMChannel):
         return
 
@@ -406,9 +449,14 @@ async def iamdone(ctx):
         save_backups()
 
 
-@bot.command()
+@bot.hybrid_command()
 @commands.has_role(ADMIN_ROLE_ID)
 async def resolve(ctx, msg_id: int = None):
+    """ 
+    Marks a report as resolved.
+    Only admins can use this command.
+    Reply to a report message or provide its ID.
+    """
     # Try to get message ID from reply if not given
     if not msg_id and ctx.message.reference:
         msg_id = ctx.message.reference.message_id
@@ -435,9 +483,14 @@ async def resolve(ctx, msg_id: int = None):
         await ctx.send("That message isn't tracked as an active report.")
 
 
-@bot.command()
+@bot.hybrid_command()
 @commands.has_role(ADMIN_ROLE_ID)
 async def createchannel(ctx, msg_id: int = None):
+    """ 
+    Creates a private channel for a report.
+    Only admins can use this command.
+    Reply to a report message or provide its ID.
+    """
     # Fallback to reply if no ID provided
     if not msg_id and ctx.message.reference:
         msg_id = ctx.message.reference.message_id
@@ -484,9 +537,14 @@ async def createchannel(ctx, msg_id: int = None):
         await ctx.send(f"Failed to create channel: {e}")
 
 
-@bot.command()
+@bot.hybrid_command()
 @commands.has_role(ADMIN_ROLE_ID)
 async def createchannelp(ctx, msg_id: int = None):
+    """ 
+    Creates a private channel for a report with the original reporter.
+    Only admins can use this command.
+    Reply to a report message or provide its ID.
+    """
     if not msg_id and ctx.message.reference:
         msg_id = ctx.message.reference.message_id
 
@@ -534,9 +592,13 @@ async def createchannelp(ctx, msg_id: int = None):
         await ctx.send(f"Failed to create channel: {e}")
 
 
-@bot.command()
+@bot.hybrid_command()
 @commands.has_role(ADMIN_ROLE_ID)
 async def listreport(ctx):
+    """ 
+    Lists all active reports.
+    Only admins can use this command.
+    """
     if not report_log_map:
         await ctx.send("No reports found.")
         return
@@ -562,34 +624,40 @@ def is_admin(member):
     return any(role.id == ADMIN_ROLE_ID for role in member.roles)
 
 
-@bot.command()
+@bot.hybrid_command()
+@commands.has_role(ADMIN_ROLE_ID)
 async def block(ctx):
-    if not is_admin(ctx.author):
-        return await ctx.send("You don't have permission.")
+    """ 
+    Blocks a regex pattern from being sent in the server.
+    Only admins can use this command.
+    """
+    # Only allow modal for slash commands
+    if ctx.interaction:
+        class RegexModal(discord.ui.Modal, title="Block Regex Pattern"):
+            pattern = discord.ui.TextInput(label="Regex Pattern", required=True)
 
-    await ctx.send("Please enter the regex to block:")
+            async def on_submit(self, interaction: discord.Interaction):
+                try:
+                    re.compile(self.pattern.value)  # Validate regex
+                    regex_filters.append({"pattern": self.pattern.value, "enabled": True})
+                    save_filters()
+                    await interaction.response.send_message(f"Blocked regex added: `{self.pattern.value}`", ephemeral=True)
+                except re.error:
+                    await interaction.response.send_message("Invalid regex pattern.", ephemeral=True)
 
-    def check(msg):
-        return msg.author == ctx.author and msg.channel == ctx.channel
-
-    try:
-        msg = await bot.wait_for("message", check=check, timeout=60)
-        pattern = msg.content
-        re.compile(pattern)  # Ensure it's valid
-        regex_filters.append({"pattern": pattern, "enabled": True})
-        save_filters()
-        await ctx.send(f"Blocked regex added: `{pattern}`")
-    except re.error:
-        await ctx.send("Invalid regex pattern.")
-    except TimeoutError:
-        await ctx.send("Timeout. Please try again.")
+        await ctx.interaction.response.send_modal(RegexModal())
+    else:
+        await ctx.send("Please use the `/block` slash command to add a regex pattern.")
 
 
-@bot.command()
+
+@bot.hybrid_command()
+@commands.has_role(ADMIN_ROLE_ID)
 async def listregex(ctx):
-    if not is_admin(ctx.author):
-        return await ctx.send("You don't have permission.")
-
+    """ 
+    Lists all blocked regex patterns.
+    Only admins can use this command.
+    """
     if not regex_filters:
         return await ctx.send("No regex patterns are currently blocked.")
 
@@ -600,30 +668,129 @@ async def listregex(ctx):
     await ctx.send(message)
 
 
-@bot.command()
-async def toggle(ctx, index: int):
-    if not is_admin(ctx.author):
-        return await ctx.send("You don't have permission.")
+def get_user_id(ctx, user_str):
+    if user_str.isdigit():
+        return int(user_str)
+    if user_str.startswith("<@") and user_str.endswith(">"):
+        return int(user_str.strip("<@!>"))
+    member = ctx.guild.get_member_named(user_str)
+    if member:
+        return member.id
+    return None
 
-    if 0 <= index < len(regex_filters):
-        regex_filters[index]["enabled"] = not regex_filters[index]["enabled"]
+@bot.hybrid_command(name="devices")
+async def devices_cmd(ctx, user: discord.User = None):
+    """
+    Lists your devices or another user's devices.
+    Usage: .devices [@user]
+    """
+    user_id = user.id if user else ctx.author.id
+    user_devices = devices_data.get(str(user_id), [])
+    if not user_devices:
+        await ctx.send("No devices found for this user.")
+        return
+    msg = f"Devices for <@{user_id}>:\n"
+    for idx, device in enumerate(user_devices, 1):
+        msg += f"**{idx}.** {device['Name']} (`{device['Codename']}`)\n"
+    await ctx.send(msg)
+
+@bot.hybrid_command(name="deviceinfo")
+async def devicelist_cmd(ctx, user: discord.User, device_id: int):
+    """
+    Shows info for a specific device.
+    Usage: .devicelist @user <device_id>
+    """
+    user_id = user.id
+    user_devices = devices_data.get(str(user_id), [])
+    if 1 <= device_id <= len(user_devices):
+        device = user_devices[device_id - 1]
+        msg = (
+            f"**Device {device_id} for <@{user_id}>:**\n"
+            f"**Name:** {device['Name']}\n"
+            f"**Codename:** {device['Codename']}\n"
+            f"**Security Patch:** {device['Security Patch']}\n"
+            f"**Build Version:** {device['Build Version']}\n"
+            f"**Version on cocaine.trade:** False\n"
+            f"**Vulnerable to:** None"
+        )
+        await ctx.send(msg)
+    else:
+        await ctx.send("Device not found for this user.")
+
+@bot.hybrid_command(name="deviceadd")
+async def deviceadd_cmd(ctx):
+    """
+    Add a device using a Discord modal.
+    """
+    class DeviceModal(discord.ui.Modal, title="Add Device"):
+        name = discord.ui.TextInput(label="Name", required=True)
+        codename = discord.ui.TextInput(label="Model", required=True)
+        patch = discord.ui.TextInput(label="Security Patch", required=True)
+        build = discord.ui.TextInput(label="Build Version", required=True)
+
+        async def on_submit(self, interaction: discord.Interaction):
+            user_id = str(interaction.user.id)
+            device = {
+                "Name": self.name.value,
+                "Codename": self.codename.value,
+                "Security Patch": self.patch.value,
+                "Build Version": self.build.value,
+            }
+            devices_data.setdefault(user_id, []).append(device)
+            save_devices(devices_data)
+            await interaction.response.send_message("✅ Device added!", ephemeral=True)
+
+    # Use the interaction to send the modal
+    if ctx.interaction:
+        await ctx.interaction.response.send_modal(DeviceModal())
+    else:
+        await ctx.send("This command must be used as a slash command.")
+
+
+@bot.hybrid_command(name="deviceremove")
+async def deviceremove_cmd(ctx, device_id: int):
+    """
+    Remove one of your devices by its ID.
+    Usage: .deviceremove <device_id>
+    """
+    user_id = str(ctx.author.id)
+    user_devices = devices_data.get(user_id, [])
+    if 1 <= device_id <= len(user_devices):
+        removed = user_devices.pop(device_id - 1)
+        save_devices(devices_data)
+        await ctx.send(f"Removed device: {removed['Name']} (`{removed['Codename']}`)")
+    else:
+        await ctx.send("Device not found.")
+
+@bot.hybrid_command()
+@commands.has_role(ADMIN_ROLE_ID)
+async def toggle(ctx, index: int):
+    """ 
+    Toggles a regex pattern.
+    Only admins can use this command.
+    """
+    real_index = index - 1  # User sees 1-based, code uses 0-based
+    if 0 <= real_index < len(regex_filters):
+        regex_filters[real_index]["enabled"] = not regex_filters[real_index]["enabled"]
         save_filters()
         await ctx.send(
-            f"Toggled regex `{regex_filters[index]['pattern']}` to {'enabled' if regex_filters[index]['enabled'] else 'disabled'}."
+            f"Toggled regex `{regex_filters[real_index]['pattern']}` to {'enabled' if regex_filters[real_index]['enabled'] else 'disabled'}."
         )
     else:
-        await ctx.send("Invalid index.")
+        await ctx.send("Invalid index. Use the number shown in `.listregex`.")
 
 
-@bot.command()
+@bot.hybrid_command()
+@commands.has_role(ADMIN_ROLE_ID)
 async def unblock(ctx):
-    if not is_admin(ctx.author):
-        return await ctx.send("You don't have permission.")
-
+    """ 
+    Unblocks a regex pattern.
+    Only admins can use this command.
+    """
     if not regex_filters:
         return await ctx.send("No regex patterns to remove.")
 
-    await ctx.send("Please enter the index of the regex to remove:")
+    await ctx.send("Please enter the index of the regex to remove (as shown in `.listregex`):")
 
     def check(msg):
         return msg.author == ctx.author and msg.channel == ctx.channel
@@ -631,7 +798,8 @@ async def unblock(ctx):
     try:
         msg = await bot.wait_for("message", check=check, timeout=60)
         index = int(msg.content)
-        removed = regex_filters.pop(index)
+        real_index = index - 1  # User sees 1-based, code uses 0-based
+        removed = regex_filters.pop(real_index)
         save_filters()
         await ctx.send(f"Removed regex `{removed['pattern']}`")
     except (ValueError, IndexError):
@@ -640,8 +808,11 @@ async def unblock(ctx):
         await ctx.send("Timeout. Please try again.")
 
 
-@bot.command()
+@bot.hybrid_command()
 async def status(ctx):
+    """ 
+    Displays the bot's status and environment information.
+    """
     os_info = platform.system()
     release = platform.release()
     architecture = platform.machine()
@@ -659,9 +830,13 @@ async def status(ctx):
     await ctx.send(env_message)
 
 
-@bot.command()
+@bot.hybrid_command()
 @commands.has_role(ADMIN_ROLE_ID)
 async def slowmode(ctx, seconds: int):
+    """ 
+    Sets the slowmode for the current channel.
+    Only admins can use this command.
+    """
     await ctx.channel.edit(slowmode_delay=seconds)
     await ctx.send(f"This channel now has a slowmode of {seconds} seconds!")
 
@@ -700,7 +875,7 @@ def is_admin_quarantine():
     return commands.check(predicate)
 
 
-@bot.command()
+@bot.hybrid_command()
 @is_admin_quarantine()
 async def q(
     ctx, member: discord.Member, duration: str, *, reason: str = "No reason provided"
@@ -762,7 +937,7 @@ async def q(
         await log_channel.send(embed=embed)
 
 
-@bot.command()
+@bot.hybrid_command()
 @is_admin_quarantine()
 async def uq(ctx, member: discord.Member, *, reason: str = "No reason provided"):
     """
@@ -839,35 +1014,30 @@ async def check_quarantine_expiry():
         save_quarantine_data()
 
 
-@bot.command()
-async def replies_cmd(ctx):
-    if not replies:
-        await ctx.send("⚠️ No replies available.")
-        return
-    response = "\n".join([f"* {key}: {val[0]}" for key, val in replies.items()])
-    await ctx.send(f"```\n{response}\n```")
-
-
-@bot.command()
+@bot.hybrid_command()
 @commands.has_role(ADMIN_ROLE_ID)
-async def updatereplies(ctx):
+async def hotupdate(ctx):
+    """
+    Pulls everything from the repository, but does not restart the bot.
+    """
     global replies
     try:
+        await ctx.send("📥 Pulling everything from the repository...")
         if os.path.exists(REPO_DIR):
             repo = Repo(REPO_DIR)
             repo.remotes.origin.pull()
         else:
             Repo.clone_from(REPO_URL, REPO_DIR)
         replies = load_replies()
-        await ctx.send("✅ Replies updated.")
+        await ctx.send("✅ Hot update complete.")
     except Exception as e:
-        await ctx.send(f"❌ Error updating replies: {e}")
+        await ctx.send(f"❌ Hot update failed:\n```{e}```")
 
 
-@bot.command()
+@bot.hybrid_command()
 async def ratelimitcheck(ctx):
     try:
-        await ctx.send("Status message here")
+        await ctx.send("If you see this message, the bot is not rate limited.")
     except discord.HTTPException as e:
         if e.status == 429:
             print("Rate limited: Try again after", e.retry_after)
@@ -956,9 +1126,7 @@ async def on_message(message):
         if cmd in replies:
             await message.channel.send(replies[cmd][1])
             return
-        elif cmd == "replies":
-            await replies_cmd(message.channel)
-            return
+
 
     if isinstance(message.channel, discord.DMChannel):
         user_id = message.author.id
@@ -970,25 +1138,42 @@ async def on_message(message):
 
 
 
-@bot.command()
+@bot.hybrid_command()
+@commands.has_role(ADMIN_ROLE_ID)
 async def reboot(ctx):
-    if not is_admin(ctx.author):
-        return await ctx.send("❌ You are not authorized to reboot the bot.")
-
+    """
+    Reboots the bot.
+    Only admins can use this command.
+    """
     await ctx.send("🔂 Rebooting bot...")
     python = sys.executable
     os.execv(python, [python] + sys.argv)
 
 
-@bot.command()
+@bot.hybrid_command()
 async def streak(ctx):
+    """
+    Displays the current counting streak.
+    """
     data = load_count_data()
     await ctx.send(f"The current counting streak is **{data['current_count']}**.")
+
+@bot.hybrid_command(name="replies")
+async def replies_command(ctx):
+    """Lists all available quick replies."""
+    if not replies:
+        await ctx.send("⚠️ No replies available.")
+    response = "\n".join([f"* {key}: {val[0]}" for key, val in replies.items()])
+    await ctx.send(f"```\n{response}\n```")
 
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound):
         print(f"Ignoring exception: CommandNotFound: '{ctx.message.content}'")
+    elif isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(f"❌ Missing required argument: {error.param.name}")
+    elif isinstance(error, commands.MissingRole):
+        await ctx.send(f"{ctx.author.mention}❌ You are not authorized to use this command.")
     else:
         print(f"Unhandled command error: {error}")
         

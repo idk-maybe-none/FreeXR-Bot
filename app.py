@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "2.0.0"
+BOTVERSION = "2.1.0"
 DISABLED_IN_BETA = {"slowmode", "q", "uq"}
 import discord
 from discord.ext import commands
@@ -209,7 +209,7 @@ async def on_ready():
         f"✅ Bot is running in **{os_info} {release} ({architecture})** environment "
         f"with **Python {python_version}**\n"
         f"🛠 Version: **{BOTVERSION}**\n"
-        f"⏱ Uptime: **{uptime}**"
+        f"⏱ Load time: **{uptime}**"
     )
     if "b" in BOTVERSION.lower():
         env_message += "\n⚠️ Beta version detected – may be unstable! Potentially destructive commands have been disabled."
@@ -238,6 +238,20 @@ async def on_ready():
     save_quarantine_data()
 
     check_quarantine_expiry.start()
+
+@bot.event
+async def on_member_join(member):
+    welcome_channel_id = 1348562119469305958
+    try:
+        await member.send(
+            "# 👋 Welcome to the server!\n Hello and welcome to FreeXR. We hack headsets to root them and unlock their bootloaders, and we appreciate you for joining. To get started, please read the https://discord.com/channels/1344235945238593547/1364918149404688454.\nWe hope you have a great stay here, and thank you for joining."
+        )
+    except discord.Forbidden:
+        channel = member.guild.get_channel(welcome_channel_id)
+        if channel:
+            msg = await channel.send(
+                f"{member.mention} 👋 Welcome to the server! Please read the https://discord.com/channels/1344235945238593547/1364918149404688454, and we hope you have a great stay here!.\n-# Psst! Your DMs are closed, so I couldn't send you a DM."
+            )
 
 
 RAW_URL = "https://raw.githubusercontent.com/FreeXR/FreeXR-Bot/refs/heads/main/app.py"
@@ -704,13 +718,26 @@ async def devicelist_cmd(ctx, user: discord.User, device_id: int):
     user_devices = devices_data.get(str(user_id), [])
     if 1 <= device_id <= len(user_devices):
         device = user_devices[device_id - 1]
+        cocaine_trade_status = "N/A"
+        if device.get("Model", "").lower() == "eureka":
+            try:
+                resp = requests.get("https://cocaine.trade/Quest_3_firmware", timeout=10)
+                if resp.ok:
+                    if device.get("Build Version", "") in resp.text:
+                        cocaine_trade_status = "True"
+                    else:
+                        cocaine_trade_status = "False"
+                else:
+                    cocaine_trade_status = "Unknown (site error)"
+            except Exception:
+                cocaine_trade_status = "Unknown (request failed)"
         msg = (
             f"**Device {device_id} for <@{user_id}>:**\n"
-            f"**Name:** {device['Name']}\n"
-            f"**Codename:** {device['Codename']}\n"
-            f"**Security Patch:** {device['Security Patch']}\n"
-            f"**Build Version:** {device['Build Version']}\n"
-            f"**Version on cocaine.trade:** False\n"
+            f"**Name:** {device.get('Name','')}\n"
+            f"**Model:** {device.get('Model','')}\n"
+            f"**Security Patch:** {device.get('Security Patch','')}\n"
+            f"**Build Version:** {device.get('Build Version','')}\n"
+            f"**Version on cocaine.trade:** {cocaine_trade_status}\n"
             f"**Vulnerable to:** None"
         )
         await ctx.send(msg)
@@ -721,20 +748,41 @@ async def devicelist_cmd(ctx, user: discord.User, device_id: int):
 async def deviceadd_cmd(ctx):
     """
     Add a device using a Discord modal.
+    Don't know why I made this command.
     """
     class DeviceModal(discord.ui.Modal, title="Add Device"):
         name = discord.ui.TextInput(label="Name", required=True)
-        codename = discord.ui.TextInput(label="Model", required=True)
+        model = discord.ui.TextInput(label="Model", required=True)
         patch = discord.ui.TextInput(label="Security Patch", required=True)
         build = discord.ui.TextInput(label="Build Version", required=True)
 
         async def on_submit(self, interaction: discord.Interaction):
+            errors = []
+
+            # Validate Build Version: must be 17 digit number
+            build_value = self.build.value.strip()
+            if not (build_value.isdigit() and len(build_value) == 17):
+                errors.append("**Build Version** must be a 17-digit number (from `adb shell getprop ro.build.version.incremental`).")
+
+            # Validate Security Patch: must be YYYY-MM-DD
+            patch_value = self.patch.value.strip()
+            import re
+            if not re.match(r"^\d{4}-\d{2}-\d{2}$", patch_value):
+                errors.append("**Security Patch** must be a date in YYYY-MM-DD format (from `adb shell getprop ro.build.version.security_patch`).")
+
+            if errors:
+                await interaction.response.send_message(
+                    "❌ There were errors with your input:\n" + "\n".join(errors),
+                    ephemeral=True
+                )
+                return
+
             user_id = str(interaction.user.id)
             device = {
                 "Name": self.name.value,
-                "Codename": self.codename.value,
-                "Security Patch": self.patch.value,
-                "Build Version": self.build.value,
+                "Model": self.model.value,
+                "Security Patch": patch_value,
+                "Build Version": build_value,
             }
             devices_data.setdefault(user_id, []).append(device)
             save_devices(devices_data)

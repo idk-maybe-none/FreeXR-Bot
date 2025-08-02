@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "2.1.1"
+BOTVERSION = "2.1.2"
 DISABLED_IN_BETA = {"slowmode", "q", "uq"}
 import discord
 from discord.ext import commands
@@ -750,8 +750,10 @@ async def deviceadd_cmd(ctx):
     Add a device using a Discord modal.
     Don't know why I made this command.
     """
+# Sanitize input to remove @ symbols and escape markdown
     def sanitize_input(value: str) -> str:
-        return discord.utils.escape_mentions(discord.utils.escape_markdown(value.strip()))
+        cleaned = value.strip().replace("@", "")  # Prevent mentions
+        return discord.utils.escape_markdown(cleaned)
 
     class DeviceModal(discord.ui.Modal, title="Add Device"):
         name = discord.ui.TextInput(label="Name", required=True)
@@ -788,13 +790,8 @@ async def deviceadd_cmd(ctx):
             }
             devices_data.setdefault(user_id, []).append(device)
             save_devices(devices_data)
-            await interaction.response.send_message("✅ Device added!", ephemeral=True)
 
-    # Use the interaction to send the modal
-    if ctx.interaction:
-        await ctx.interaction.response.send_modal(DeviceModal())
-    else:
-        await ctx.send("This command must be used as a slash command.")
+            await interaction.response.send_message("✅ Device added!", ephemeral=True)
 
 
 @bot.hybrid_command(name="deviceremove")

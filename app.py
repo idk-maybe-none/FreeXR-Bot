@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "2.1.0"
+BOTVERSION = "2.1.1"
 DISABLED_IN_BETA = {"slowmode", "q", "uq"}
 import discord
 from discord.ext import commands
@@ -750,6 +750,9 @@ async def deviceadd_cmd(ctx):
     Add a device using a Discord modal.
     Don't know why I made this command.
     """
+    def sanitize_input(value: str) -> str:
+        return discord.utils.escape_mentions(discord.utils.escape_markdown(value.strip()))
+
     class DeviceModal(discord.ui.Modal, title="Add Device"):
         name = discord.ui.TextInput(label="Name", required=True)
         model = discord.ui.TextInput(label="Model", required=True)
@@ -759,14 +762,13 @@ async def deviceadd_cmd(ctx):
         async def on_submit(self, interaction: discord.Interaction):
             errors = []
 
-            # Validate Build Version: must be 17 digit number
+            # Validate Build Version: must be a 17 digit number
             build_value = self.build.value.strip()
             if not (build_value.isdigit() and len(build_value) == 17):
                 errors.append("**Build Version** must be a 17-digit number (from `adb shell getprop ro.build.version.incremental`).")
 
             # Validate Security Patch: must be YYYY-MM-DD
             patch_value = self.patch.value.strip()
-            import re
             if not re.match(r"^\d{4}-\d{2}-\d{2}$", patch_value):
                 errors.append("**Security Patch** must be a date in YYYY-MM-DD format (from `adb shell getprop ro.build.version.security_patch`).")
 
@@ -779,8 +781,8 @@ async def deviceadd_cmd(ctx):
 
             user_id = str(interaction.user.id)
             device = {
-                "Name": self.name.value,
-                "Model": self.model.value,
+                "Name": sanitize_input(self.name.value),
+                "Model": sanitize_input(self.model.value),
                 "Security Patch": patch_value,
                 "Build Version": build_value,
             }

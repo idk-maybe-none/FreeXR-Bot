@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "2.1.2"
+BOTVERSION = "2.1.3"
 DISABLED_IN_BETA = {"slowmode", "q", "uq"}
 import discord
 from discord.ext import commands
@@ -764,6 +764,16 @@ async def deviceadd_cmd(ctx):
         async def on_submit(self, interaction: discord.Interaction):
             errors = []
 
+            # Check for @
+            if "@" in self.name.value:
+                errors.append("**Name** cannot contain `@` symbols.")
+            if "@" in self.model.value:
+                errors.append("**Model** cannot contain `@` symbols.")
+            if "@" in self.patch.value:
+                errors.append("**Security Patch** cannot contain `@` symbols.")
+            if "@" in self.build.value:
+                errors.append("**Build Version** cannot contain `@` symbols.")
+
             # Validate Build Version: must be a 17 digit number
             build_value = self.build.value.strip()
             if not (build_value.isdigit() and len(build_value) == 17):
@@ -783,8 +793,8 @@ async def deviceadd_cmd(ctx):
 
             user_id = str(interaction.user.id)
             device = {
-                "Name": sanitize_input(self.name.value),
-                "Model": sanitize_input(self.model.value),
+                "Name": self.name.value.strip(),
+                "Model": self.model.value.strip(),
                 "Security Patch": patch_value,
                 "Build Version": build_value,
             }

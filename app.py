@@ -803,6 +803,12 @@ async def deviceadd_cmd(ctx):
 
             await interaction.response.send_message("✅ Device added!", ephemeral=True)
 
+    # Use the interaction to send the modal
+    if ctx.interaction:
+        await ctx.interaction.response.send_modal(DeviceModal())
+    else:
+        await ctx.send("This command must be used as a slash command.")
+
 
 @bot.hybrid_command(name="deviceremove")
 async def deviceremove_cmd(ctx, device_id: int):

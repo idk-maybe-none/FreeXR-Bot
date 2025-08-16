@@ -1,6 +1,6 @@
 # FreeXR Bot
 # Made with love by ilovecats4606 <3
-BOTVERSION = "2.1.4"
+BOTVERSION = "2.1.5"
 DISABLED_IN_BETA = {"slowmode", "q", "uq"}
 import discord
 from discord.ext import commands
@@ -242,6 +242,12 @@ async def on_ready():
 @bot.event
 async def on_member_join(member):
     welcome_channel_id = 1348562119469305958
+    
+    try:
+        await member.add_roles(member.guild.get_role(1406195112714829899))
+    except discord.Forbidden:
+        print(f"Couldn't add role to {member} (permissions issue)")
+        
     try:
         await member.send(
             "# 👋 Welcome to the server!\n Hello and welcome to FreeXR. We hack headsets to root them and unlock their bootloaders, and we appreciate you for joining. To get started, please read the https://discord.com/channels/1344235945238593547/1364918149404688454.\nWe hope you have a great stay here, and thank you for joining."

@@ -1,2 +1,3 @@
-# Quest 3/3s Root On Newer Versions
+Quest 3/3s Root On Newer Versions
+---
 It is currently not possible to root a Quest 3/3s if you're on firmware newer than `51154110129000520` on Quest 3, or `1176880085300610` on Quest 3s. You will need to wait for a new exploit to come out. We are not actively working on this for the pure reason that everyone that is developing for root already has it, and it's just not the thing we are focused on right now. No, we don't know when the next root exploit will be made/published, or even if there will be a next one.

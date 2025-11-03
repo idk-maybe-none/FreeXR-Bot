@@ -1,4 +1,4 @@
 discord.py~=2.6.4
-GitPython~=3.1.45
 requests~=2.32.5
-arithmeval~=0.3.4
+GitPython~=3.1.45
+expr-py~=0.3.0

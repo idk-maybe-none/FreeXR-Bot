@@ -6,10 +6,13 @@ def load_json(file_path, default=None):
     if default is None:
         default = {}
 
-    file_path = Path(file_path)
-    if file_path.exists():
-        with open(file_path, "r", encoding="utf-8") as f:
-            return json.load(f)
+    try:
+        file_path = Path(file_path)
+        if file_path.exists():
+            with open(file_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except json.JSONDecodeError:
+        return default
     return default
 
 

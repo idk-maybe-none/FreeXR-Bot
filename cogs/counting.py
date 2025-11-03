@@ -2,7 +2,7 @@ from discord.ext import commands
 
 from utils.file_handlers import load_json, save_json
 from config import COUNTING_CHANNEL_ID, COUNTING_REPORT_CHANNEL_ID, MATH_CONSTANTS, COUNT_FILE
-from arithmetic_eval import evaluate
+from expr import evaluate, errors
 
 
 class Counting(commands.Cog):
@@ -23,7 +23,7 @@ class Counting(commands.Cog):
             content = message.content
 
             try:
-                number = evaluate(content, MATH_CONSTANTS)
+                number = evaluate(content, variables=MATH_CONSTANTS)
 
                 if number == current_count + 1 and message.author.id != last_counter_id:
                     data["current_count"] = number
@@ -38,21 +38,15 @@ class Counting(commands.Cog):
                     else:
                         reason = "Unknown error"
 
-            except (ValueError, SyntaxError, ZeroDivisionError, TypeError) as e:  # TODO: Refactor entire file because I'm not sure it even works
-                if content.isdigit() and "\n" not in content:
-                    number = int(content)
-                    if number == current_count + 1 and message.author.id != last_counter_id:
-                        data["current_count"] = number
-                        data["last_counter_id"] = message.author.id
-                        save_json(COUNT_FILE, data)
-                        return
-                    else:
-                        if message.author.id == last_counter_id:
-                            reason = "Double counting - same user consecutively"
-                        else:
-                            reason = f"Incorrect number - expected {current_count + 1}, got {number}"
-                else:
-                    reason = f"Invalid mathematical expression: {str(e)}"
+            except errors.ParsingError as e:
+                """
+                TODO: Ignore if error is Gibberish, InvalidSyntax, BadOperation because they all may mean that it's not math expression, or it's just: 2**2 instead of 2^2
+                TODO: Maybe implement custom error handler so instead of Invalid mathematical expression: Overflow, it says: Don't try to break this, and maybe even mutes for 15 minutes because of that
+                (But first ask someone, it's just my ideas of improving it)
+                """
+                reason = f"Invalid mathematical expression: {e.friendly}"
+            except Exception as e:
+                reason = f"Unknown error: {e}"
 
             data["current_count"] = 0
             data["last_counter_id"] = None

@@ -14,7 +14,7 @@ FreeXR Discord Bot
 - **Fixed`.replies_cmd` command** (replaced with a single `replies` hybrid command)
 - **Counting now support arithmetics**, (and SPOILER: it's not just eval())
   - Bot now uses arithmeval, python library that gives bot ability to do basic math ( and not only )
-  - Now you can use Addition (+), True division (/), Floor division (//), Modulus (%), Multiplication (*), Exponentiation (**), Subtraction (-), Logical AND (and), Logical OR (or), Logical NOT (not), and even pi (π), e, tau (τ), the golden ratio (φ), Euler-Mascheroni's gamma (gamma), the speed of light (c), Newton's gravitational constant (G), and Planck's constant (h). (IDK why you would use them)
+  - Now you can use Addition (+), True division (/), Floor division (//), Modulus (%), Multiplication (*), Exponentiation (^), Subtraction (-), and even pi (π), e, tau (τ), the golden ratio (φ), Euler-Mascheroni's gamma (gamma), the speed of light (c), Newton's gravitational constant (G), and Planck's constant (h). (IDK why you would use them)
 
 #### Device Management
 - **New persistent device system**:
